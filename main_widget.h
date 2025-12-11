@@ -10,6 +10,9 @@
 #include <QCheckBox>
 #include <QRadioButton>
 #include <QButtonGroup>
+#include <QStyle>
+#include <QDialog>
+#include <QDoubleSpinBox>
 
 ///
 /// \brief The MainWidget class - widget for interaction with visualized data
@@ -84,6 +87,13 @@ public:
     ///
     bool swapMouseButton(int idTab);
 
+    ///
+    /// \brief swapVHButtons - swap buttons which will change scene in vertical and horizontal space
+    /// \param idTab - id of tab be interacted with
+    /// \return - true is all good, false is mistake
+    ///
+    bool swapVHButtons(int idTab);
+
     // --- Setters ---
 
     ///
@@ -111,13 +121,21 @@ public:
     /// \param step - distance between each value on graph
     /// \return - true is all good, false is mistake
     ///
-    bool setStepGraph(int idTab, type step);
+    bool setStepGraph(int idTab, double step);
 
     ///
     /// \brief setStepGrid - set distance between each part of the grid in all tabs
     /// \param step - distance between each part of the grid
     ///
-    void setStepGrid(std::pair<type, type> step);
+    void setStepGrid(std::pair<double, double> step);
+
+    ///
+    /// \brief setStepGrid - set distance between each part of the grid in all tabs
+    /// \param idTab - id of tab be interacted with
+    /// \param step - distance between each part of the grid
+    /// \return - true is all good, false is mistake
+    ///
+    bool setStepGrid(int idTab, std::pair<double, double> step);
 
     ///
     /// \brief setStartPointGraph - set point of beginning of graph
@@ -125,7 +143,7 @@ public:
     /// \param startPoint - point of beginning of graph
     /// \return - true is all good, false is mistake
     ///
-    bool setStartPointGraph(int idGraph, type startPoint);
+    bool setStartPointGraph(int idGraph, double startPoint);
 
     ///
     /// \brief setGraphMode - set mode in which graph will display in all tabs
@@ -170,13 +188,6 @@ public:
     /// \return - true is all good, false is mistake
     ///
     bool setCancelSelectButton(int idTab, Qt::Key button);
-
-    ///
-    /// \brief swapVHButtons - swap buttons which will change scene in vertical and horizontal space
-    /// \param idTab - id of tab be interacted with
-    /// \return - true is all good, false is mistake
-    ///
-    bool swapVHButtons(int idTab);
 
     ///
     /// \brief setValuesGraph - set array of graph values
@@ -407,6 +418,20 @@ public:
     ///
     bool setWidthAxes(int idTab, float width);
 
+    // --- Getters ---
+
+    ///
+    /// \brief getSignal - get class Signal, which emit different signals
+    /// \return - class Signal
+    ///
+    WidgetSignals *getSignal();
+
+    ///
+    /// \brief getCurrentTab - get current tab
+    /// \return - current tab
+    ///
+    int getCurrentTab();
+
 private:
 
     ///
@@ -472,7 +497,7 @@ private:
     typename OGLW::SCENE_MODE m_sceneMode; ///< Mode in which scene will change in all tabs
 
     bool                m_updateSceneAuto; ///<
-    std::pair<type, type>      m_stepGrid; ///<
+    std::pair<double, double>  m_stepGrid; ///<
 
     QRgb                     m_colorGraph; ///< Graph color in tabs
     QRgb                      m_colorText; ///< Text color in tabs
@@ -515,6 +540,9 @@ MainWidget<type, T>::MainWidget(QWidget *parent)
 
     connect(&m_signal, &WidgetSignals::updateTextValues, this, [this](int id) {
         updateGridValues(id);
+    });
+    connect(m_tabWidget, &QTabWidget::currentChanged, this, [this]([[maybe_unused]] int id) {
+        m_signal.triggerSignalCurrentTab(getCurrentTab());
     });
 }
 
@@ -605,6 +633,7 @@ int MainWidget<type, T>::addTab(QString name)
     QVBoxLayout *mainL = new QVBoxLayout();
     QVBoxLayout *GLWAxis = new QVBoxLayout();
     QHBoxLayout *GLWBut = new QHBoxLayout();
+    QHBoxLayout *topLayout = new QHBoxLayout();
     QHBoxLayout *buttonsLayout = new QHBoxLayout();
     QWidget *XAxis = new QWidget();
     QWidget *YAxis = new QWidget();
@@ -637,6 +666,153 @@ int MainWidget<type, T>::addTab(QString name)
     m_tabs[idTab].OGLWidget->setWidthGridCursor(m_widthGridCursor);
     m_tabs[idTab].OGLWidget->setWidthAxes(m_widthAxes);
 
+    QPushButton *settingsButton = new QPushButton();
+    settingsButton->setIcon(style()->standardIcon(QStyle::SP_MessageBoxInformation));
+    settingsButton->setFixedWidth(30);
+    settingsButton->setStyleSheet(R"(
+    QPushButton {
+        border: 1px solid rgba(0, 0, 0, 0.18);
+        border-radius: 6px;
+        padding: 4px;
+    }
+    QPushButton:hover {
+        background: rgba(0, 0, 0, 0.06);
+    }
+    QPushButton:pressed {
+        background: rgba(0, 0, 0, 0.12);
+    })");
+
+    QDialog *settingsDialog = new QDialog(this);
+    settingsDialog->setWindowTitle("Настройки");
+    settingsDialog->setWindowIcon(style()->standardIcon(QStyle::SP_MessageBoxInformation));
+    settingsDialog->setFixedSize(250, 250);
+
+    QObject::connect(settingsButton, &QPushButton::clicked, [ = ]() {
+        settingsDialog->exec();
+    });
+
+    auto makeDoubleSpin = [&](double value, double min, double max, double step, int decimals) {
+        QDoubleSpinBox *s = new QDoubleSpinBox(settingsDialog);
+        s->setRange(min, max);
+        s->setSingleStep(step);
+        s->setDecimals(decimals);
+        s->setValue(value);
+        s->setFixedWidth(60);
+        return s;
+    };
+
+    auto makeExpSpin = [&]() {
+        QSpinBox *e = new QSpinBox(settingsDialog);
+        e->setRange(-20, 20);
+        e->setValue(0);
+        e->setSingleStep(1);
+        e->setFixedWidth(50);
+        return e;
+    };
+
+    double globalMin = -100;
+    double globalMax = 100;
+    int decimals = 3;
+    double step = 1;
+
+    QLabel *lblMinX = new QLabel("Min X", settingsDialog);
+    QDoubleSpinBox *spinMinX = makeDoubleSpin(0.0, globalMin, globalMax, step, decimals);
+    QSpinBox *expMinX = makeExpSpin();
+
+    QLabel *lblMaxX = new QLabel("Max X", settingsDialog);
+    QDoubleSpinBox *spinMaxX = makeDoubleSpin(1.0, globalMin, globalMax, step, decimals);
+    QSpinBox *expMaxX = makeExpSpin();
+
+    QLabel *lblMinY = new QLabel("Min Y", settingsDialog);
+    QDoubleSpinBox *spinMinY = makeDoubleSpin(0.0, globalMin, globalMax, step, decimals);
+    QSpinBox *expMinY = makeExpSpin();
+
+    QLabel *lblMaxY = new QLabel("Max Y", settingsDialog);
+    QDoubleSpinBox *spinMaxY = makeDoubleSpin(1.0, globalMin, globalMax, step, decimals);
+    QSpinBox *expMaxY = makeExpSpin();
+
+    QVBoxLayout *dialogLayout = new QVBoxLayout(settingsDialog);
+
+    auto addRow = [&](QLabel * label, QWidget * mantissa, QWidget * expWidget) {
+        QHBoxLayout *row = new QHBoxLayout();
+        row->addWidget(label);
+        row->addStretch(1);
+        row->addWidget(mantissa);
+        row->addWidget(new QLabel("×10^", settingsDialog));
+        row->addWidget(expWidget);
+        dialogLayout->addLayout(row);
+    };
+
+    addRow(lblMinX, spinMinX, expMinX);
+    addRow(lblMaxX, spinMaxX, expMaxX);
+
+    addRow(lblMinY, spinMinY, expMinY);
+    addRow(lblMaxY, spinMaxY, expMaxY);
+
+    settingsDialog->setLayout(dialogLayout);
+
+    auto computeValue = [](double value, int exp) -> double {
+        return value * std::pow(10.0, exp);
+    };
+
+    auto updateX = [ = ]() {
+        double minValue = spinMinX->value();
+        int minExp = expMinX->value();
+        double maxValue = spinMaxX->value();
+        int maxExp = expMaxX->value();
+
+        double minX = computeValue(minValue, minExp);
+        double maxX = computeValue(maxValue, maxExp);
+
+        if (minX >= maxX) {
+            return;
+        }
+
+        m_tabs[idTab].OGLWidget->setMinMaxXScene(minX, maxX);
+    };
+
+    auto updateY = [ = ]() {
+        double minValue = spinMinY->value();
+        int minExp = expMinY->value();
+        double maxValue = spinMaxY->value();
+        int maxExp = expMaxY->value();
+
+        double minY = computeValue(minValue, minExp);
+        double maxY = computeValue(maxValue, maxExp);
+
+        if (minY >= maxY) {
+            return;
+        }
+
+        m_tabs[idTab].OGLWidget->setMinMaxYScene(minY, maxY);
+    };
+
+    QObject::connect(spinMinX, QOverload<double>::of(&QDoubleSpinBox::valueChanged), [ = ](double) {
+        updateX();
+    });
+    QObject::connect(spinMaxX, QOverload<double>::of(&QDoubleSpinBox::valueChanged), [ = ](double) {
+        updateX();
+    });
+    QObject::connect(spinMinY, QOverload<double>::of(&QDoubleSpinBox::valueChanged), [ = ](double) {
+        updateY();
+    });
+    QObject::connect(spinMaxY, QOverload<double>::of(&QDoubleSpinBox::valueChanged), [ = ](double) {
+        updateY();
+    });
+
+    QObject::connect(expMinX, QOverload<int>::of(&QSpinBox::valueChanged), [ = ](int) {
+        updateX();
+    });
+    QObject::connect(expMaxX, QOverload<int>::of(&QSpinBox::valueChanged), [ = ](int) {
+        updateX();
+    });
+    QObject::connect(expMinY, QOverload<int>::of(&QSpinBox::valueChanged), [ = ](int) {
+        updateY();
+    });
+    QObject::connect(expMaxY, QOverload<int>::of(&QSpinBox::valueChanged), [ = ](int) {
+        updateY();
+    });
+
     GLWAxis->addWidget(m_tabs[idTab].OGLWidget, 20);
     GLWAxis->addWidget(XAxis, 1);
 
@@ -644,7 +820,10 @@ int MainWidget<type, T>::addTab(QString name)
     GLWBut->addWidget(YAxis, 1);
     GLWBut->addLayout(GLWAxis, 20);
 
-    mainL->addLayout(buttonsLayout, 1);
+    topLayout->addLayout(buttonsLayout, 20);
+    topLayout->addWidget(settingsButton, 1);
+
+    mainL->addLayout(topLayout, 1);
     mainL->addSpacing(10);
     mainL->addLayout(GLWBut, 10);
 
@@ -813,7 +992,7 @@ bool MainWidget<type, T>::setGridCursorVisible(int idTab, bool show)
 }
 
 template<typename type, TYPE_VISIBLE T>
-bool MainWidget<type, T>::setStepGraph(int idTab, type step)
+bool MainWidget<type, T>::setStepGraph(int idTab, double step)
 {
     if (m_tabs.size() <= idTab || m_tabs[idTab].deleteTab)
         return false;
@@ -824,7 +1003,7 @@ bool MainWidget<type, T>::setStepGraph(int idTab, type step)
 }
 
 template<typename type, TYPE_VISIBLE T>
-void MainWidget<type, T>::setStepGrid(std::pair<type, type> step)
+void MainWidget<type, T>::setStepGrid(std::pair<double, double> step)
 {
     m_stepGrid = step;
     for (auto &tab : m_tabs) {
@@ -836,7 +1015,18 @@ void MainWidget<type, T>::setStepGrid(std::pair<type, type> step)
 }
 
 template<typename type, TYPE_VISIBLE T>
-bool MainWidget<type, T>::setStartPointGraph(int idGraph, type startPoint)
+bool MainWidget<type, T>::setStepGrid(int idTab, std::pair<double, double> step)
+{
+    if (m_tabs.size() <= idTab || m_tabs[idTab].deleteTab)
+        return false;
+
+    m_tabs[idTab].OGLWidget->setStepGrid(step);
+
+    return true;
+}
+
+template<typename type, TYPE_VISIBLE T>
+bool MainWidget<type, T>::setStartPointGraph(int idGraph, double startPoint)
 {
     if (m_graphsIdTab.size() <= idGraph || m_graphsIdTab[idGraph] == -1)
         return false;
@@ -1262,12 +1452,31 @@ bool MainWidget<type, T>::setWidthAxes(int idTab, float width)
 }
 
 template<typename type, TYPE_VISIBLE T>
+WidgetSignals *MainWidget<type, T>::getSignal()
+{
+    return &m_signal;
+}
+
+template<typename type, TYPE_VISIBLE T>
+int MainWidget<type, T>::getCurrentTab()
+{
+    int id = m_tabWidget->currentIndex();
+    int i{};
+    for (int index = 0; index < id; ++i) {
+        if (!m_tabs[i].deleteTab)
+            ++index;
+    }
+
+    return i;
+}
+
+template<typename type, TYPE_VISIBLE T>
 void MainWidget<type, T>::updateGridValues(int idTab)
 {
     // Update grid values and its positions
     std::pair<std::vector<int>, std::vector<int>> axesValue = m_tabs[idTab].OGLWidget->getGridValues();
 
-    std::pair<std::vector<type>, std::vector<type>> Values = m_tabs[idTab].OGLWidget->getValues();
+    std::pair<std::vector<double>, std::vector<double>> Values = m_tabs[idTab].OGLWidget->getValues();
 
     const auto &childrenY = m_tabs[idTab].XAxis->children();
 

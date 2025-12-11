@@ -2,7 +2,6 @@
 #define OPENGL_WIDGET_H
 
 #include "widget_signals.h"
-#include "../timing_utils/timer.h"
 
 #include <QOpenGLWidget>
 #include <QOpenGLFunctions>
@@ -64,15 +63,15 @@ public:
     ///
     struct GraphData {
         std::vector<type> graph; ///< array of graph values
-        type         startPoint; ///< starting point of graph
-        QRgb              color; ///< graph color
-        bool               show; ///< show or unshow graph
+        type      startPoint{0}; ///< starting point of graph
+        QRgb           color{0}; ///< graph color
+        bool         show{true}; ///< show or unshow graph
 
         // --- Constructors/destructors ---
 
         GraphData() = default;
         GraphData(std::vector<type> &graph, QRgb color)
-            : graph{graph}, color{color}, show{true}, startPoint{0}
+            : graph{graph}, color{color}
         {}
         ~GraphData() = default;
     };
@@ -140,19 +139,33 @@ public:
     /// \param idGraph - id of graph
     /// \param startPoint - point of beginning of graph
     ///
-    void setStartPointGraph(int idGraph, type startPoint);
+    void setStartPointGraph(int idGraph, double startPoint);
 
     ///
     /// \brief setStepGraph - set distance between each value on graphs
     /// \param step - distance between each value on graph
     ///
-    void setStepGraph(type step);
+    void setStepGraph(double step);
 
     ///
     /// \brief setStepGrid - set distance between each part of the grid, XY
     /// \param step - distance between each part of the grid, XY
     ///
-    void setStepGrid(std::pair<type, type> step);
+    void setStepGrid(std::pair<double, double> step);
+
+    ///
+    /// \brief setMinMaxXYScene - set minimum and maximum X for scene
+    /// \param minX - minimum for X axis
+    /// \param minX - maximum for X axis
+    ///
+    void setMinMaxXScene(double minX, double maxX);
+
+    ///
+    /// \brief setMinMaxXYScene - set minimum and maximum Y for scene
+    /// \param minY - minimum for Y axis
+    /// \param minY - maximum for Y axis
+    ///
+    void setMinMaxYScene(double minY, double maxY);
 
     ///
     /// \brief setGraphMode - set mode in which graph will display
@@ -269,7 +282,7 @@ public:
     /// \brief getValues - obtaining values of each line of grid
     /// \return - pair of arrays, first for X axis, second for Y axis
     ///
-    std::pair<std::vector<type>&, std::vector<type>&> getValues();
+    std::pair<std::vector<double>&, std::vector<double>&> getValues();
 
 private:
 
@@ -325,13 +338,9 @@ private:
     void updateGrid(bool updateFullGrid);
 
     ///
-    /// \brief roundToSignificantDigits - rounds a float to significant digits
-    /// \param value - float number to be rounded
-    /// \return - value rounded to significant digits
+    /// \brief updateGL - update GL border
     ///
-    float roundToSignificantDigits(float value, int significantDigits);
-
-    void glVertex2(type x, type y);
+    void updateGLBorder();
 
 private:
 
@@ -353,20 +362,20 @@ private:
     bool                                 m_init; ///<
     bool                      m_updateSceneAuto; ///<
 
-    WidgetSignals              *m_signal; ///< Object class Signals
+    WidgetSignals                     *m_signal; ///< Object class Signals
 
     std::unordered_map<int, GraphData> m_graphs; ///< Data for each graph
 
-    std::pair<float, float>        m_zoomFactor; ///< Current scene zoom factor X, Y = first, second
-    std::pair<float, float>    m_lastZoomFactor; ///< Previous scene zoom factor X, Y = first, second
-    std::pair<float, float>            m_offset; ///< Current shift along axes X, Y = first, second
+    std::pair<double, double>      m_zoomFactor; ///< Current scene zoom factor X, Y = first, second
+    std::pair<double, double>  m_lastZoomFactor; ///< Previous scene zoom factor X, Y = first, second
+    std::pair<double, double>          m_offset; ///< Current shift along axes X, Y = first, second
 
     std::pair<int, int>                m_WDSize; ///< Current Widget size X, Y = first, second
-    std::pair<float, float>      m_pixelDencity; ///< Pixel density along axes  X, Y = first, second
-    std::pair<float, float>         m_pixelSize; ///< Pixel sizes in scene measure
-    std::pair<type, type>           m_sceneSize; ///< Scene size X, Y = first, second
+    std::pair<double, double>    m_pixelDencity; ///< Pixel density along axes  X, Y = first, second
+    std::pair<double, double>       m_pixelSize; ///< Pixel sizes in scene measure
+    std::pair<double, double>       m_sceneSize; ///< Scene size X, Y = first, second
 
-    std::pair<type, type>             m_MinMaxX; ///< Minimum and maximum values of X
+    std::pair<double, double>         m_MinMaxX; ///< Minimum and maximum values of X
     std::pair<type, type>             m_MinMaxY; ///< Minimum and maximum values of Y
     QPointF                       m_borderMaxGL; ///< Max scene border, right upper corner
     QPointF                       m_borderMinGL; ///< Max scene border, left lower corner
@@ -385,12 +394,12 @@ private:
 
     std::vector<int>          m_textHorizontalY; ///< Coord of values for horizontal grid
     std::vector<int>            m_textVerticalX; ///< Coord of values for vertical grid
-    std::vector<type>        m_valueHorizontalY; ///< Values for horizontal grid
-    std::vector<type>          m_valueVerticalX; ///< Values for vertical grid
+    std::vector<double>        m_valueHorizontalY; ///< Values for horizontal grid
+    std::vector<double>          m_valueVerticalX; ///< Values for vertical grid
 
     type                            m_stepGraph; ///< Distance between each value on graph
-    std::pair<type, type>            m_stepGrid; ///< Distance between each part of the grid, XY
-    std::pair<type, type>      m_staticStepGrid; ///< Static distance between each part of the grid, XY
+    std::pair<double, double>        m_stepGrid; ///< Distance between each part of the grid, XY
+    std::pair<double, double>  m_staticStepGrid; ///< Static distance between each part of the grid, XY
     bool                             m_showGrid; ///< Whether grid is shown
     bool                       m_showGridCursor; ///< Whether cursor grid is shown
 
@@ -547,14 +556,14 @@ void OpenGLWidget<type, T>::setSignal(WidgetSignals *signal)
 }
 
 template<typename type, TYPE_VISIBLE T>
-void OpenGLWidget<type, T>::setStartPointGraph(int idGraph, type startPoint)
+void OpenGLWidget<type, T>::setStartPointGraph(int idGraph, double startPoint)
 {
     m_graphs[idGraph].startPoint = startPoint;
     update();
 }
 
 template<typename type, TYPE_VISIBLE T>
-void OpenGLWidget<type, T>::setStepGraph(type step)
+void OpenGLWidget<type, T>::setStepGraph(double step)
 {
     m_sceneSize.first = m_sceneSize.first / m_stepGraph * step;
     m_stepGraph = step;
@@ -562,7 +571,7 @@ void OpenGLWidget<type, T>::setStepGraph(type step)
 }
 
 template<typename type, TYPE_VISIBLE T>
-void OpenGLWidget<type, T>::setStepGrid(std::pair<type, type> step)
+void OpenGLWidget<type, T>::setStepGrid(std::pair<double, double> step)
 {
     m_staticStepGrid = step;
     if (step.first > 0)
@@ -570,6 +579,38 @@ void OpenGLWidget<type, T>::setStepGrid(std::pair<type, type> step)
     if (step.second > 0)
         m_stepGrid.second = step.second;
     update();
+}
+
+template<typename type, TYPE_VISIBLE T>
+void OpenGLWidget<type, T>::setMinMaxXScene(double minX, double maxX)
+{
+    m_MinMaxX = {minX, maxX};
+    m_zoomFactor.first = 1;
+    m_lastZoomFactor.first = 1;
+    m_offset.first = 0;
+
+    m_sceneSize.first = m_MinMaxX.second - m_MinMaxX.first;
+
+    if (m_staticStepGrid.first <= 0)
+        m_stepGrid.first = m_sceneSize.first / DEFAULT_STEP_GRID;
+
+    updateGLBorder();
+}
+
+template<typename type, TYPE_VISIBLE T>
+void OpenGLWidget<type, T>::setMinMaxYScene(double minY, double maxY)
+{
+    m_MinMaxY = {minY, maxY};
+    m_zoomFactor.second = 1;
+    m_lastZoomFactor.second = 1;
+    m_offset.second = 0;
+
+    m_sceneSize.second = m_MinMaxY.second - m_MinMaxY.first;
+
+    if (m_staticStepGrid.second <= 0)
+        m_stepGrid.second = m_sceneSize.second / DEFAULT_STEP_GRID;
+
+    updateGLBorder();
 }
 
 template<typename type, TYPE_VISIBLE T>
@@ -677,7 +718,7 @@ std::pair<std::vector<int> &, std::vector<int> &> OpenGLWidget<type, T>::getGrid
 }
 
 template<typename type, TYPE_VISIBLE T>
-std::pair<std::vector<type> &, std::vector<type> &> OpenGLWidget<type, T>::getValues()
+std::pair<std::vector<double> &, std::vector<double> &> OpenGLWidget<type, T>::getValues()
 {
     return {m_valueVerticalX, m_valueHorizontalY};
 }
@@ -875,7 +916,7 @@ void OpenGLWidget<type, T>::resizeGL(int w, int h)
     glMatrixMode(GL_PROJECTION);
     glLoadIdentity();
     glOrtho(m_MinMaxX.first,
-            m_MinMaxX.first + m_sceneSize.first,
+            m_MinMaxX.second,
             m_MinMaxY.first,
             m_MinMaxY.second,
             1, -1);
@@ -926,10 +967,6 @@ void OpenGLWidget<type, T>::paintGL()
         glEnd();
     }
 
-    static size_t id{0};
-    static float time{0};
-    Timer<std::chrono::microseconds> timer;
-    timer.fixStamp();
     glLineWidth(m_widthGraph);
     for (const auto &graph : m_graphs) {
         const auto &data = graph.second;
@@ -1016,10 +1053,6 @@ void OpenGLWidget<type, T>::paintGL()
         }
         glEnd();
     }
-    timer.fixStamp();
-    time = (time * id + timer.value()) / (id + 1);
-    ++id;
-    //qDebug() << time << "timer :" << timer.value();
 
     if (m_mouseMoveMode != MOUSE_MOVE_MODE::UNDEFINED) {
         glColor4ub(128, 128, 128, 255);
@@ -1078,7 +1111,7 @@ template<typename type, TYPE_VISIBLE T>
 QPointF OpenGLWidget<type, T>::coordWDtoGL(QPoint point)
 {
     QPointF result;
-    result.setX((point.x() / m_pixelDencity.first - m_offset.first) / m_zoomFactor.first);
+    result.setX((point.x() / m_pixelDencity.first - m_offset.first) / m_zoomFactor.first + m_MinMaxX.first);
     result.setY((m_MinMaxY.second - point.y() / m_pixelDencity.second - m_offset.second) / m_zoomFactor.second);
 
     return result;
@@ -1145,15 +1178,8 @@ void OpenGLWidget<type, T>::resetScene()
     if (m_staticStepGrid.second <= 0)
         m_stepGrid.second = m_sceneSize.second / DEFAULT_STEP_GRID;
 
-    if (m_init) {
-        //makeCurrent();
-        //resizeGL(width(), height());
-        //doneCurrent();
-        resize(width() - 1, height());
-        resize(width() + 1, height());
-        updateGrid(true);
-        update();
-    }
+    if (m_init)
+        updateGLBorder();
 }
 
 template<typename type, TYPE_VISIBLE T>
@@ -1223,40 +1249,26 @@ void OpenGLWidget<type, T>::updateGrid(bool updateFullGrid)
         m_gridVerticalX.clear();
         m_gridHorizontalY.clear();
 
-        float sizeX = 0;
+        float sizeX = m_MinMaxX.first;
         while (sizeX < m_borderMaxGL.x() && sizeX > m_borderMinGL.x()) {
             m_gridVerticalX.push_back(sizeX);
             sizeX += m_stepGrid.first;
         }
-        sizeX = -m_stepGrid.first;
+        sizeX = m_MinMaxX.first - m_stepGrid.first;
         while (sizeX < m_borderMaxGL.x() && sizeX > m_borderMinGL.x()) {
             m_gridVerticalX.push_back(sizeX);
             sizeX -= m_stepGrid.first;
         }
-        if (m_gridVerticalX.empty()) {
-            sizeX = roundToSignificantDigits(m_borderMinGL.x(), 3);
-            while (sizeX < m_borderMaxGL.x() && sizeX > m_borderMinGL.x()) {
-                m_gridVerticalX.push_back(sizeX);
-                sizeX -= m_stepGrid.first;
-            }
-        }
 
-        float sizeY = 0;
+        float sizeY = m_MinMaxY.first;
         while (sizeY < m_borderMaxGL.y() && sizeY > m_borderMinGL.y()) {
             m_gridHorizontalY.push_back(sizeY);
             sizeY += m_stepGrid.second;
         }
-        sizeY = -m_stepGrid.second;
+        sizeY = m_MinMaxY.first - m_stepGrid.second;
         while (sizeY < m_borderMaxGL.y() && sizeY > m_borderMinGL.y()) {
             m_gridHorizontalY.push_back(sizeY);
             sizeY -= m_stepGrid.second;
-        }
-        if (m_gridHorizontalY.empty()) {
-            sizeY = roundToSignificantDigits(m_borderMinGL.y(), 3);
-            while (sizeY < m_borderMaxGL.y() && sizeY > m_borderMinGL.y()) {
-                m_gridHorizontalY.push_back(sizeY);
-                sizeY -= m_stepGrid.second;
-            }
         }
     }
     if (m_lastZoomFactor != m_zoomFactor) {
@@ -1337,26 +1349,20 @@ void OpenGLWidget<type, T>::updateGrid(bool updateFullGrid)
 }
 
 template<typename type, TYPE_VISIBLE T>
-float OpenGLWidget<type, T>::roundToSignificantDigits(float value, int significantDigits)
+void OpenGLWidget<type, T>::updateGLBorder()
 {
-    if (value == 0.0f) return 0.0f;
+    // Возможная ошибка при захвате контекста
+    if (false) {
+        makeCurrent();
+        resizeGL(width(), height());
+        doneCurrent();
+    } else {
+        resize(width() - 1, height());
+        resize(width() + 1, height());
+    }
 
-    int exponent = static_cast<int>(std::floor(std::log10(std::fabs(value))));
-    float scale = std::pow(10, significantDigits - exponent);
-    return std::round(value * scale) / scale;
-}
-
-template<typename type, TYPE_VISIBLE T>
-void OpenGLWidget<type, T>::glVertex2(type x, type y)
-{
-    if constexpr(T == TYPE_VISIBLE::SHORT)
-        glVertex2s(x, y);
-    else if constexpr(T == TYPE_VISIBLE::INT)
-        glVertex2i(x, y);
-    else if constexpr(T == TYPE_VISIBLE::FLOAT)
-        glVertex2f(x, y);
-    else if constexpr(T == TYPE_VISIBLE::DOUBLE)
-        glVertex2d(x, y);
+    updateGrid(true);
+    update();
 }
 
 #endif // OPENGL_WIDGET_H
