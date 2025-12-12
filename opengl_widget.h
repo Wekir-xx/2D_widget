@@ -154,14 +154,14 @@ public:
     void setStepGrid(std::pair<double, double> step);
 
     ///
-    /// \brief setMinMaxXYScene - set minimum and maximum X for scene
+    /// \brief setMinMaxXYScene - set minimum and maximum value axis X for scene
     /// \param minX - minimum for X axis
     /// \param minX - maximum for X axis
     ///
     void setMinMaxXScene(double minX, double maxX);
 
     ///
-    /// \brief setMinMaxXYScene - set minimum and maximum Y for scene
+    /// \brief setMinMaxXYScene - set minimum and maximum value axis Y for scene
     /// \param minY - minimum for Y axis
     /// \param minY - maximum for Y axis
     ///
@@ -271,6 +271,18 @@ public:
     void setWidthAxes(float width);
 
     // --- Getters ---
+
+    ///
+    /// \brief getMinMaxXScene - get minimum and maximum value axis X for scene
+    /// \return - pair of minimum and maximum value axis X
+    ///
+    std::pair<double, double> getMinMaxXScene();
+
+    ///
+    /// \brief getMinMaxYScene - get minimum and maximum value axis Y for scene
+    /// \return - pair of minimum and maximum value axis Y
+    ///
+    std::pair<type, type> getMinMaxYScene();
 
     ///
     /// \brief getGridValues - obtaining location of each line of grid in pixels
@@ -709,6 +721,18 @@ void OpenGLWidget<type, T>::setWidthAxes(float width)
 {
     m_widthAxes = width;
     update();
+}
+
+template<typename type, TYPE_VISIBLE T>
+std::pair<double, double> OpenGLWidget<type, T>::getMinMaxXScene()
+{
+    return m_MinMaxX;
+}
+
+template<typename type, TYPE_VISIBLE T>
+std::pair<type, type> OpenGLWidget<type, T>::getMinMaxYScene()
+{
+    return m_MinMaxY;
 }
 
 template<typename type, TYPE_VISIBLE T>

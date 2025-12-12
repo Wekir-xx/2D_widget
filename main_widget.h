@@ -1,6 +1,8 @@
 #ifndef MAIN_WIDGET_H
 #define MAIN_WIDGET_H
 
+#include <QDebug>
+
 #include "opengl_widget.h"
 
 #include <QTabWidget>
@@ -13,6 +15,10 @@
 #include <QStyle>
 #include <QDialog>
 #include <QDoubleSpinBox>
+
+#define SPIN_GLOB_MIN -100.0
+#define SPIN_GLOB_MAX 100.0
+#define SPIN_DECIMALS 3
 
 ///
 /// \brief The MainWidget class - widget for interaction with visualized data
@@ -687,16 +693,11 @@ int MainWidget<type, T>::addTab(QString name)
     settingsDialog->setWindowIcon(style()->standardIcon(QStyle::SP_MessageBoxInformation));
     settingsDialog->setFixedSize(250, 250);
 
-    QObject::connect(settingsButton, &QPushButton::clicked, [ = ]() {
-        settingsDialog->exec();
-    });
-
-    auto makeDoubleSpin = [&](double value, double min, double max, double step, int decimals) {
+    auto makeDoubleSpin = [&]() {
         QDoubleSpinBox *s = new QDoubleSpinBox(settingsDialog);
-        s->setRange(min, max);
-        s->setSingleStep(step);
-        s->setDecimals(decimals);
-        s->setValue(value);
+        s->setRange(SPIN_GLOB_MIN, SPIN_GLOB_MAX);
+        s->setSingleStep(1);
+        s->setDecimals(SPIN_DECIMALS);
         s->setFixedWidth(60);
         return s;
     };
@@ -704,42 +705,36 @@ int MainWidget<type, T>::addTab(QString name)
     auto makeExpSpin = [&]() {
         QSpinBox *e = new QSpinBox(settingsDialog);
         e->setRange(-20, 20);
-        e->setValue(0);
         e->setSingleStep(1);
         e->setFixedWidth(50);
         return e;
     };
 
-    double globalMin = -100;
-    double globalMax = 100;
-    int decimals = 3;
-    double step = 1;
-
     QLabel *lblMinX = new QLabel("Min X", settingsDialog);
-    QDoubleSpinBox *spinMinX = makeDoubleSpin(0.0, globalMin, globalMax, step, decimals);
+    QDoubleSpinBox *spinMinX = makeDoubleSpin();
     QSpinBox *expMinX = makeExpSpin();
 
     QLabel *lblMaxX = new QLabel("Max X", settingsDialog);
-    QDoubleSpinBox *spinMaxX = makeDoubleSpin(1.0, globalMin, globalMax, step, decimals);
+    QDoubleSpinBox *spinMaxX = makeDoubleSpin();
     QSpinBox *expMaxX = makeExpSpin();
 
     QLabel *lblMinY = new QLabel("Min Y", settingsDialog);
-    QDoubleSpinBox *spinMinY = makeDoubleSpin(0.0, globalMin, globalMax, step, decimals);
+    QDoubleSpinBox *spinMinY = makeDoubleSpin();
     QSpinBox *expMinY = makeExpSpin();
 
     QLabel *lblMaxY = new QLabel("Max Y", settingsDialog);
-    QDoubleSpinBox *spinMaxY = makeDoubleSpin(1.0, globalMin, globalMax, step, decimals);
+    QDoubleSpinBox *spinMaxY = makeDoubleSpin();
     QSpinBox *expMaxY = makeExpSpin();
 
     QVBoxLayout *dialogLayout = new QVBoxLayout(settingsDialog);
 
-    auto addRow = [&](QLabel * label, QWidget * mantissa, QWidget * expWidget) {
+    auto addRow = [&](QLabel * label, QDoubleSpinBox * valueSpin, QSpinBox * expSpin) {
         QHBoxLayout *row = new QHBoxLayout();
         row->addWidget(label);
         row->addStretch(1);
-        row->addWidget(mantissa);
+        row->addWidget(valueSpin);
         row->addWidget(new QLabel("×10^", settingsDialog));
-        row->addWidget(expWidget);
+        row->addWidget(expSpin);
         dialogLayout->addLayout(row);
     };
 
@@ -750,6 +745,32 @@ int MainWidget<type, T>::addTab(QString name)
     addRow(lblMaxY, spinMaxY, expMaxY);
 
     settingsDialog->setLayout(dialogLayout);
+
+    auto splitValue = [](double val, QDoubleSpinBox * valueSpin, QSpinBox * expSpin) {
+        if (val == 0.0) {
+            valueSpin->setValue(0.0);
+            expSpin->setValue(0);
+            return;
+        }
+
+        int exp = static_cast<int>(std::floor(std::log10(std::fabs(val))));
+        double scale = std::pow(10.0, SPIN_DECIMALS);
+        double value = std::round(val / std::pow(10.0, exp) * scale) / scale;
+        expSpin->setValue(exp);
+        valueSpin->setValue(value);
+    };
+
+    QObject::connect(settingsButton, &QPushButton::clicked, [ = ]() {
+        auto minMaxX = m_tabs[idTab].OGLWidget->getMinMaxXScene();
+        auto minMaxY = m_tabs[idTab].OGLWidget->getMinMaxYScene();
+
+        splitValue(minMaxX.first, spinMinX, expMinX);
+        splitValue(minMaxX.second, spinMaxX, expMaxX);
+        splitValue(minMaxY.first, spinMinY, expMinY);
+        splitValue(minMaxY.second, spinMaxY, expMaxY);
+
+        settingsDialog->exec();
+    });
 
     auto computeValue = [](double value, int exp) -> double {
         return value * std::pow(10.0, exp);
